@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Cek Koordinat SBR</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        /* Variabel Warna Global */
+        :root {
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --danger-bg: #fee2e2;
+            --danger-text: #ef4444;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main);
+            height: 100vh; display: flex; flex-direction: column; 
+        }
+        
+        /* Header Modern */
+        .header { 
+            background-color: #0f172a; 
+            color: white; 
+            padding: 16px 28px; 
+            display: flex; align-items: center; justify-content: space-between; 
+            flex-shrink: 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+        .header-title { display: flex; align-items: center; font-size: 20px; font-weight: 700; letter-spacing: -0.5px;}
+        .header-title span { 
+            background: var(--primary); color: white; 
+            padding: 6px 10px; border-radius: 8px; margin-right: 12px; font-size: 16px;
+        }
+        
+        /* Menu Tab Minimalis */
+        .top-menu { 
+            background: var(--bg-card); 
+            padding: 0 28px; 
+            display: flex; gap: 32px; 
+            border-bottom: 1px solid var(--border-color); 
+            flex-shrink: 0;
+        }
+        .top-menu a { 
+            text-decoration: none; color: var(--text-muted); font-weight: 500; 
+            cursor: pointer; padding: 16px 0; 
+            border-bottom: 2px solid transparent; 
+            transition: all 0.2s ease;
+        }
+        .top-menu a:hover { color: var(--text-main); }
+        .top-menu a.active { color: var(--primary); border-bottom-color: var(--primary); }
+        
+        /* Content Area */
+        .content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .content.active { display: flex; }
+        
+        /* Pembungkus Baris Filter */
+        .filter-wrapper { padding: 20px 28px 0 28px; flex-shrink: 0;}
+        .filter-bar { 
+            background: var(--bg-card); padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); 
+            display: flex; gap: 20px; align-items: flex-end; 
+        }
+        
+        /* Gaya Input/Select Modern */
+        .filter-group { display: flex; flex-direction: column; flex: 1; }
+        .filter-group label { 
+            font-size: 12px; font-weight: 600; color: var(--text-muted); 
+            margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .filter-group select { 
+            padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; 
+            font-size: 14px; color: var(--text-main); font-family: 'Inter', sans-serif;
+            outline: none; cursor: pointer; background-color: #f8fafc;
+            transition: all 0.2s;
+        }
+        .filter-group select:hover { border-color: #cbd5e1; }
+        .filter-group select:focus { 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); 
+            background-color: white;
+        }
+        
+        /* Tombol Reset Halus */
+        .btn-reset { 
+            background: #e2e8f0; color: #475569; border: none; 
+            padding: 11px 20px; border-radius: 8px; font-weight: 600; font-family: 'Inter';
+            cursor: pointer; flex: 0.5; transition: all 0.2s;
+        }
+        .btn-reset:hover { background: #cbd5e1; color: #1e293b; }
+
+        /* Peta dalam bentuk Kartu */
+        .map-wrapper { flex: 1; padding: 20px 28px 28px 28px; display: flex; flex-direction: column; }
+        #map { 
+            width: 100%; flex: 1; border-radius: 12px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); 
+            overflow: hidden;
+        }
+        
+        /* Tabel Data Elegan */
+        .table-container { 
+            margin: 20px 28px 28px 28px; flex: 1; overflow: auto; 
+            background: var(--bg-card); border-radius: 12px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { 
+            background: #f8fafc; color: var(--text-muted); padding: 14px 20px; 
+            text-align: left; font-weight: 600; font-size: 12px; 
+            text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color); 
+            position: sticky; top: 0; z-index: 1;
+        }
+        td { padding: 14px 20px; border-bottom: 1px solid var(--border-color); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8fafc; }
+        
+        /* Badge Error */
+        .badge-error {
+            background-color: var(--danger-bg);
+            color: var(--danger-text);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* Popup Peta Custom */
+        .maplibregl-popup-content {
+            font-family: 'Inter', sans-serif;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title"><span>🗺️</span> Cek Koordinat SBR</div>
+    </div>
+
+    <div class="top-menu">
+        <a id="tab-dashboard" class="active" onclick="switchTab('dashboard')">Dashboard Visual</a>
+        <a id="tab-rekap" onclick="switchTab('rekap')">Tabel Rekapitulasi</a>
+    </div>
+
+    <div id="view-dashboard" class="content active">
+        <div class="filter-wrapper">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Kabupaten/Kota</label>
+                    <select id="map-filter-kab" onchange="handleFilterChange('map')"><option value="Semua">Semua Wilayah</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Kecamatan</label>
+                    <select id="map-filter-kec" onchange="handleFilterChange('map')"><option value="Semua">Semua Kecamatan</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Desa</label>
+                    <select id="map-filter-desa" onchange="handleFilterChange('map')"><option value="Semua">Semua Desa</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Petugas Ground Check</label>
+                    <select id="map-filter-user" onchange="applyFilters('map')"><option value="Semua">Semua Petugas</option></select>
+                </div>
+                <button class="btn-reset" onclick="resetFilters('map')">🔄 Reset Filter</button>
+            </div>
+        </div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <div id="view-rekap" class="content">
+        <div class="filter-wrapper">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Kabupaten/Kota</label>
+                    <select id="rekap-filter-kab" onchange="handleFilterChange('rekap')"><option value="Semua">Semua Wilayah</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Kecamatan</label>
+                    <select id="rekap-filter-kec" onchange="handleFilterChange('rekap')"><option value="Semua">Semua Kecamatan</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Desa</label>
+                    <select id="rekap-filter-desa" onchange="handleFilterChange('rekap')"><option value="Semua">Semua Desa</option></select>
+                </div>
+                <div class="filter-group">
+                    <label>Petugas Ground Check</label>
+                    <select id="rekap-filter-user" onchange="applyFilters('rekap')"><option value="Semua">Semua Petugas</option></select>
+                </div>
+                <button class="btn-reset" onclick="resetFilters('rekap')">🔄 Reset Filter</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table id="rekap-table">
+                <thead>
+                    <tr>
+                        <th>Kabupaten</th>
+                        <th>Kecamatan</th>
+                        <th>Desa</th>
+                        <th>ID SBR</th>
+                        <th>Lat</th>
+                        <th>Lon</th>
+                        <th>Petugas</th>
+                        <th>Keterangan Anomali</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let geojsonData = null;     
+        let polygonData = null;     
+        let allKabs = new Set(), allUsers = new Set();
+
+        // Inisialisasi Peta
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+            center: [105.2667, -5.4254],
+            zoom: 7.5
+        });
+        map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
+
+        // Navigasi Tab
+        function switchTab(tab) {
+            document.querySelectorAll('.top-menu a').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`view-${tab}`).classList.add('active');
+            
+            if (tab === 'dashboard') {
+                setTimeout(() => map.resize(), 100);
+            }
+        }
+
+        // Memuat DUA Data Sekaligus (Titik dan Poligon)
+        map.on('load', async () => {
+            const [resTitik, resPoly] = await Promise.all([
+                fetch('anomali_titik.geojson'),
+                fetch('provinsi_lampung.geojson')
+            ]);
+            
+            geojsonData = await resTitik.json();
+            polygonData = await resPoly.json();
+
+            // Ekstrak master
+            geojsonData.features.forEach(f => {
+                if (f.properties.nmkab) allKabs.add(f.properties.nmkab);
+                if (f.properties.gc_username) allUsers.add(f.properties.gc_username);
+            });
+
+            // Isi dropdown statis
+            ['map', 'rekap'].forEach(prefix => {
+                populateSelect(`${prefix}-filter-kab`, allKabs, 'Semua Wilayah');
+                populateSelect(`${prefix}-filter-user`, allUsers, 'Semua Petugas');
+                handleFilterChange(prefix);
+            });
+
+            // LAYER POLIGON
+            map.addSource('data-wilayah', { type: 'geojson', data: polygonData });
+            map.addLayer({
+                'id': 'wilayah-fill',
+                'type': 'fill',
+                'source': 'data-wilayah',
+                'paint': {
+                    'fill-color': '#2563eb',
+                    'fill-opacity': 0.1 
+                }
+            });
+            map.addLayer({
+                'id': 'wilayah-garis',
+                'type': 'line',
+                'source': 'data-wilayah',
+                'paint': {
+                    'line-color': '#2563eb',
+                    'line-width': 1.5,
+                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.5
+                }
+            });
+
+            // LAYER TITIK ANOMALI
+            map.addSource('data-anomali', { type: 'geojson', data: geojsonData });
+            map.addLayer({
+                'id': 'titik-merah',
+                'type': 'circle',
+                'source': 'data-anomali',
+                'paint': {
+                    'circle-radius': 6,
+                    'circle-color': '#ef4444',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.9
+                }
+            });
+
+            // Interaksi Peta (Popup Modern)
+            map.on('click', 'titik-merah', (e) => {
+                const props = e.features[0].properties;
+                const html = `
+                    <div style="margin-bottom: 8px;">
+                        <strong style="font-size:15px; color:#1e293b;">${props.nama_usaha}</strong>
+                    </div>
+                    <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+                        <b>ID SBR:</b> ${props.idsbr}<br>
+                        <b>Petugas:</b> ${props.gc_username}<br>
+                        <div style="margin-top: 8px;">
+                            <span class="badge-error">${props.vflag_006}</span>
+                        </div>
+                    </div>
+                `;
+                new maplibregl.Popup({closeButton: false})
+                    .setLngLat(e.lngLat)
+                    .setHTML(html)
+                    .addTo(map);
+            });
+            map.on('mouseenter', 'titik-merah', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'titik-merah', () => map.getCanvas().style.cursor = '');
+        });
+
+        // ==========================================
+        // LOGIKA FILTER & AUTO ZOOM
+        // ==========================================
+        
+        function resetFilters(prefix) {
+            document.getElementById(`${prefix}-filter-kab`).value = 'Semua';
+            document.getElementById(`${prefix}-filter-user`).value = 'Semua';
+            
+            handleFilterChange(prefix);
+            
+            if (prefix === 'map') {
+                map.flyTo({ center: [105.2667, -5.4254], zoom: 7.5, duration: 1000 });
+            }
+        }
+
+        function handleFilterChange(prefix) {
+            if (!geojsonData) return;
+            
+            const selectedKab = document.getElementById(`${prefix}-filter-kab`).value;
+            const selectedKec = document.getElementById(`${prefix}-filter-kec`).value;
+            const selectedDesa = document.getElementById(`${prefix}-filter-desa`).value;
+
+            const kecs = new Set(), desas = new Set();
+            
+            geojsonData.features.forEach(f => {
+                const p = f.properties;
+                if (selectedKab === 'Semua' || p.nmkab === selectedKab) {
+                    if (p.nmkec) kecs.add(p.nmkec);
+                    if (selectedKec === 'Semua' || p.nmkec === selectedKec) {
+                        if (p.nmdesa) desas.add(p.nmdesa);
+                    }
+                }
+            });
+
+            populateSelect(`${prefix}-filter-kec`, kecs, 'Semua Kecamatan', selectedKec);
+            populateSelect(`${prefix}-filter-desa`, desas, 'Semua Desa', selectedDesa);
+            
+            applyFilters(prefix);
+        }
+
+        function populateSelect(id, setValues, defaultText = 'Semua', currentSelection = 'Semua') {
+            const sel = document.getElementById(id);
+            sel.innerHTML = `<option value="Semua">${defaultText}</option>`;
+            Array.from(setValues).sort().forEach(val => {
+                const opt = new Option(val, val);
+                if (val === currentSelection) opt.selected = true;
+                sel.add(opt);
+            });
+            if (currentSelection !== 'Semua' && !setValues.has(currentSelection)) {
+                sel.value = 'Semua';
+            }
+        }
+
+        function applyFilters(prefix) {
+            if (!geojsonData || !polygonData) return;
+            
+            const kab = document.getElementById(`${prefix}-filter-kab`).value;
+            const kec = document.getElementById(`${prefix}-filter-kec`).value;
+            const desa = document.getElementById(`${prefix}-filter-desa`).value;
+            const user = document.getElementById(`${prefix}-filter-user`).value;
+
+            // Cari data yang lolos filter
+            const filtered = geojsonData.features.filter(f => {
+                const p = f.properties;
+                return (kab === 'Semua' || p.nmkab === kab) &&
+                       (kec === 'Semua' || p.nmkec === kec) &&
+                       (desa === 'Semua' || p.nmdesa === desa) &&
+                       (user === 'Semua' || p.gc_username === user);
+            });
+
+            // Update Peta & Auto Zoom
+            if (prefix === 'map' && map.getLayer('titik-merah')) {
+                let pointFilter = ['all'];
+                let polyFilter = ['all']; 
+
+                if (kab !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmkab'], kab]);
+                    polyFilter.push(['==', ['get', 'nmkab'], kab]);
+                }
+                if (kec !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmkec'], kec]);
+                    polyFilter.push(['==', ['get', 'nmkec'], kec]);
+                }
+                if (desa !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmdesa'], desa]);
+                    polyFilter.push(['==', ['get', 'nmdesa'], desa]);
+                }
+                if (user !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'gc_username'], user]);
+                }
+
+                map.setFilter('titik-merah', pointFilter.length > 1 ? pointFilter : null);
+                map.setFilter('wilayah-fill', polyFilter.length > 1 ? polyFilter : null);
+                map.setFilter('wilayah-garis', polyFilter.length > 1 ? polyFilter : null);
+
+                // Fitur Auto Zoom (Fit Bounds)
+                if (kab === 'Semua' && kec === 'Semua' && desa === 'Semua' && user === 'Semua') {
+                    map.flyTo({ center: [105.2667, -5.4254], zoom: 7.5, duration: 1000 });
+                } else if (filtered.length > 0) {
+                    let bounds = new maplibregl.LngLatBounds();
+                    filtered.forEach(f => {
+                        bounds.extend(f.geometry.coordinates);
+                    });
+                    
+                    map.fitBounds(bounds, { 
+                        padding: 50,
+                        maxZoom: 14,
+                        duration: 1000
+                    });
+                }
+            }
+
+            // Update Tabel
+            if (prefix === 'rekap') {
+                const tbody = document.querySelector('#rekap-table tbody');
+                tbody.innerHTML = '';
+
+                filtered.forEach(f => {
+                    const p = f.properties;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">${p.nmkab || '-'}</td>
+                        <td>${p.nmkec || '-'}</td>
+                        <td>${p.nmdesa || '-'}</td>
+                        <td style="font-family: monospace; color: #64748b;">${p.idsbr || '-'}</td>
+                        <td>${p.latitude_gc || '-'}</td>
+                        <td>${p.longitude_gc || '-'}</td>
+                        <td style="font-weight: 500;">${p.gc_username || '-'}</td>
+                        <td><span class="badge-error">${p.vflag_006 || '-'}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

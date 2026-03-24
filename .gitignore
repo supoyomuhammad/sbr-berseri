@@ -1,0 +1,7 @@
+# Abaikan file data mentah dan rekap Excel
+*.json
+!provinsi_lampung.geojson
+!anomali_titik.geojson
+*.parquet
+*.db
+kabupaten_split_anomali/

@@ -1,0 +1,6 @@
+git init
+git add .
+git commit -m "Rilis pertama dashboard"
+git branch -M main
+git remote add origin https://github.com/supoyomuhammad/sbr-berseri.git
+git push -u origin main
