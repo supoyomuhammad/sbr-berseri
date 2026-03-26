@@ -210,20 +210,14 @@
             </div>
         </div>
         
-        <!-- Layout Peta & Sidebar -->
         <div class="map-layout">
-            <!-- Sidebar Ringkasan -->
             <div class="summary-sidebar">
                 <div class="summary-header">
                     <div class="summary-title">Total Anomali</div>
                     <div class="summary-total" id="total-anomali">0 <span>titik</span></div>
                 </div>
-                <div class="agregat-list" id="agregat-list">
-                    <!-- List agregat akan diisi otomatis oleh JavaScript -->
-                </div>
+                <div class="agregat-list" id="agregat-list"></div>
             </div>
-            
-            <!-- Peta -->
             <div id="map"></div>
         </div>
     </div>
@@ -274,7 +268,6 @@
         let polygonData = null;     
         let allKabs = new Set(), allUsers = new Set();
 
-        // Inisialisasi Peta
         const map = new maplibregl.Map({
             container: 'map',
             style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -283,7 +276,6 @@
         });
         map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
 
-        // Navigasi Tab
         function switchTab(tab) {
             document.querySelectorAll('.top-menu a').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
@@ -296,7 +288,6 @@
             }
         }
 
-        // Memuat DUA Data Sekaligus (Titik dan Poligon)
         map.on('load', async () => {
             const [resTitik, resPoly] = await Promise.all([
                 fetch('anomali_titik.geojson'),
@@ -306,43 +297,26 @@
             geojsonData = await resTitik.json();
             polygonData = await resPoly.json();
 
-            // Ekstrak master
             geojsonData.features.forEach(f => {
                 if (f.properties.nmkab) allKabs.add(f.properties.nmkab);
                 if (f.properties.gc_username) allUsers.add(f.properties.gc_username);
             });
 
-            // Isi dropdown statis
-            ['map', 'rekap'].forEach(prefix => {
-                populateSelect(`${prefix}-filter-kab`, allKabs, 'Semua Wilayah');
-                populateSelect(`${prefix}-filter-user`, allUsers, 'Semua Petugas');
-                handleFilterChange(prefix);
-            });
-
-            // LAYER POLIGON
+            // 1. TAMBAHKAN LAYER PETA TERLEBIH DAHULU
             map.addSource('data-wilayah', { type: 'geojson', data: polygonData });
             map.addLayer({
                 'id': 'wilayah-fill',
                 'type': 'fill',
                 'source': 'data-wilayah',
-                'paint': {
-                    'fill-color': '#2563eb',
-                    'fill-opacity': 0.1 
-                }
+                'paint': { 'fill-color': '#2563eb', 'fill-opacity': 0.1 }
             });
             map.addLayer({
                 'id': 'wilayah-garis',
                 'type': 'line',
                 'source': 'data-wilayah',
-                'paint': {
-                    'line-color': '#2563eb',
-                    'line-width': 1.5,
-                    'line-dasharray': [2, 2],
-                    'line-opacity': 0.5
-                }
+                'paint': { 'line-color': '#2563eb', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.5 }
             });
 
-            // LAYER TITIK ANOMALI
             map.addSource('data-anomali', { type: 'geojson', data: geojsonData });
             map.addLayer({
                 'id': 'titik-merah',
@@ -357,7 +331,13 @@
                 }
             });
 
-            // Interaksi Peta (Popup Modern)
+            // 2. SETELAH LAYER ADA, BARU JALANKAN FILTER AGAR ANGKA MUNCUL SAAT LOAD PERTAMA
+            ['map', 'rekap'].forEach(prefix => {
+                populateSelect(`${prefix}-filter-kab`, allKabs, 'Semua Wilayah');
+                populateSelect(`${prefix}-filter-user`, allUsers, 'Semua Petugas');
+                handleFilterChange(prefix);
+            });
+
             map.on('click', 'titik-merah', (e) => {
                 const props = e.features[0].properties;
                 const html = `
@@ -381,16 +361,10 @@
             map.on('mouseleave', 'titik-merah', () => map.getCanvas().style.cursor = '');
         });
 
-        // ==========================================
-        // LOGIKA FILTER, AUTO ZOOM & AGREGAT
-        // ==========================================
-        
         function resetFilters(prefix) {
             document.getElementById(`${prefix}-filter-kab`).value = 'Semua';
             document.getElementById(`${prefix}-filter-user`).value = 'Semua';
-            
             handleFilterChange(prefix);
-            
             if (prefix === 'map') {
                 map.flyTo({ center: [105.2667, -5.4254], zoom: 7.5, duration: 1000 });
             }
@@ -442,7 +416,6 @@
             const desa = document.getElementById(`${prefix}-filter-desa`).value;
             const user = document.getElementById(`${prefix}-filter-user`).value;
 
-            // Cari data yang lolos filter
             const filtered = geojsonData.features.filter(f => {
                 const p = f.properties;
                 return (kab === 'Semua' || p.nmkab === kab) &&
@@ -451,48 +424,8 @@
                        (user === 'Semua' || p.gc_username === user);
             });
 
-            // Update Peta, Auto Zoom, dan Rekap Agregat
             if (prefix === 'map' && map.getLayer('titik-merah')) {
-                let pointFilter = ['all'];
-                let polyFilter = ['all']; 
-
-                if (kab !== 'Semua') {
-                    pointFilter.push(['==', ['get', 'nmkab'], kab]);
-                    polyFilter.push(['==', ['get', 'nmkab'], kab]);
-                }
-                if (kec !== 'Semua') {
-                    pointFilter.push(['==', ['get', 'nmkec'], kec]);
-                    polyFilter.push(['==', ['get', 'nmkec'], kec]);
-                }
-                if (desa !== 'Semua') {
-                    pointFilter.push(['==', ['get', 'nmdesa'], desa]);
-                    polyFilter.push(['==', ['get', 'nmdesa'], desa]);
-                }
-                if (user !== 'Semua') {
-                    pointFilter.push(['==', ['get', 'gc_username'], user]);
-                }
-
-                map.setFilter('titik-merah', pointFilter.length > 1 ? pointFilter : null);
-                map.setFilter('wilayah-fill', polyFilter.length > 1 ? polyFilter : null);
-                map.setFilter('wilayah-garis', polyFilter.length > 1 ? polyFilter : null);
-
-                // Fitur Auto Zoom (Fit Bounds)
-                if (kab === 'Semua' && kec === 'Semua' && desa === 'Semua' && user === 'Semua') {
-                    map.flyTo({ center: [105.2667, -5.4254], zoom: 7.5, duration: 1000 });
-                } else if (filtered.length > 0) {
-                    let bounds = new maplibregl.LngLatBounds();
-                    filtered.forEach(f => {
-                        bounds.extend(f.geometry.coordinates);
-                    });
-                    
-                    map.fitBounds(bounds, { 
-                        padding: 50,
-                        maxZoom: 14,
-                        duration: 1000
-                    });
-                }
-
-                // Update Total & Sidebar Agregat
+                // 3. UPDATE ANGKA DI HTML LEBIH DULU (Mencegah gagal tampil jika peta crash)
                 document.getElementById('total-anomali').innerHTML = `${filtered.length} <span>titik</span>`;
 
                 const agregatData = {};
@@ -517,9 +450,54 @@
                         `;
                     });
                 }
+
+                // 4. FILTER PETA DAN AUTO ZOOM
+                let pointFilter = ['all'];
+                let polyFilter = ['all']; 
+
+                if (kab !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmkab'], kab]);
+                    polyFilter.push(['==', ['get', 'nmkab'], kab]);
+                }
+                if (kec !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmkec'], kec]);
+                    polyFilter.push(['==', ['get', 'nmkec'], kec]);
+                }
+                if (desa !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'nmdesa'], desa]);
+                    polyFilter.push(['==', ['get', 'nmdesa'], desa]);
+                }
+                if (user !== 'Semua') {
+                    pointFilter.push(['==', ['get', 'gc_username'], user]);
+                }
+
+                map.setFilter('titik-merah', pointFilter.length > 1 ? pointFilter : null);
+                map.setFilter('wilayah-fill', polyFilter.length > 1 ? polyFilter : null);
+                map.setFilter('wilayah-garis', polyFilter.length > 1 ? polyFilter : null);
+
+                // Fitur Auto Zoom dengan Perlindungan Koordinat Rusak
+                if (kab === 'Semua' && kec === 'Semua' && desa === 'Semua' && user === 'Semua') {
+                    map.flyTo({ center: [105.2667, -5.4254], zoom: 7.5, duration: 1000 });
+                } else if (filtered.length > 0) {
+                    let bounds = new maplibregl.LngLatBounds();
+                    let validPoints = 0;
+                    
+                    filtered.forEach(f => {
+                        // Sistem Keamanan: Abaikan jika koordinat null/NaN
+                        if (f.geometry && Array.isArray(f.geometry.coordinates) && 
+                            typeof f.geometry.coordinates[0] === 'number' && 
+                            typeof f.geometry.coordinates[1] === 'number') {
+                            bounds.extend(f.geometry.coordinates);
+                            validPoints++;
+                        }
+                    });
+                    
+                    if (validPoints > 0) {
+                        map.fitBounds(bounds, { padding: 50, maxZoom: 14, duration: 1000 });
+                    }
+                }
             }
 
-            // Update Tabel
             if (prefix === 'rekap') {
                 const tbody = document.querySelector('#rekap-table tbody');
                 tbody.innerHTML = '';
