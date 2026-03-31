@@ -20,10 +20,10 @@ def main():
     select_clause = ", ".join(columns_to_keep)
 
     # Menggunakan wildcard (*.json) agar DuckDB membaca semua file JSON di folder tersebut sekaligus.
-    # Union by name memastikan kolom tetap sinkron meskipun urutan di JSON berbeda.
+    # Ditambahkan ignore_errors dan sample_size=-1 agar kebal terhadap data kotor (dirty data).
     query = f"""
         SELECT {select_clause} 
-        FROM read_json_auto('./*.json', union_by_name=true)
+        FROM read_json_auto('./*.json', union_by_name=true, ignore_errors=true, sample_size=-1)
     """
     
     # Eksekusi query dan konversi langsung ke Polars DataFrame
